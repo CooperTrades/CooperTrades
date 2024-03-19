@@ -30,7 +30,7 @@ class Class(Base):
     units = Column(Integer, nullable=False)
     max_capacity = Column(Integer, nullable=False)
     num_students = Column(Integer, nullable=False)
-    waitlist_status = Column(Boolean, nullable=False)  # tinyint(1) is often used as a boolean
+    waitlist_status = Column(Boolean, nullable=False)  
 
     def __repr__(self):
         return f"<Class(class_id={self.class_id}, course_name='{self.course_name}', section='{self.section}', instructor='{self.instructor}', day_time='{self.day_time}', location='{self.location}', units={self.units}, max_capacity={self.max_capacity}, num_students={self.num_students}, waitlist_status={self.waitlist_status})>"
@@ -39,9 +39,9 @@ class Event(Base):
     __tablename__ = 'events'
     
     events_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)  # Assuming there is a users table with user_id
-    class_id = Column(Integer, ForeignKey('classes.class_id'), nullable=False)  # Assuming a relation with the classes table
-    type = Column(Integer, nullable=False)  # This column name 'type' is typically reserved in Python, consider renaming
+    user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)  
+    class_id = Column(Integer, ForeignKey('classes.class_id'), nullable=False) 
+    type = Column(Integer, nullable=False)  
 
     def __repr__(self):
         return f"<Event(events_id={self.events_id}, user_id={self.user_id}, class_id={self.class_id}, type={self.type})>"
@@ -50,14 +50,14 @@ class Trade(Base):
     __tablename__ = 'trades'
     
     trade_id = Column(Integer, primary_key=True, autoincrement=True)
-    requester = Column(Integer, nullable=False)  # Assuming this refers to a user_id in another table
-    accepter = Column(Integer, nullable=True)  # This might also refer to a user_id and can be null
-    get1 = Column(Integer, nullable=True)  # Details for this and subsequent 'get' columns would depend on their purpose
+    requester = Column(Integer, nullable=False) 
+    accepter = Column(Integer, nullable=True)  
+    get1 = Column(Integer, nullable=True)  
     get2 = Column(Integer, nullable=True)
     get3 = Column(Integer, nullable=True)
     get_chosen = Column(Integer, nullable=True)
     give = Column(Integer, nullable=False)
-    status = Column(Boolean, nullable=False)  # tinyint(1) is often used as a boolean
+    status = Column(Boolean, nullable=False)  
     post_time = Column(DateTime, default=func.now(), nullable=False)
     accept_time = Column(DateTime, nullable=True)
 
@@ -72,7 +72,7 @@ class User(Base):
     
     user_id = Column(Integer, primary_key=True, autoincrement=True)
     email = Column(String(254), nullable=False)
-    username = Column(String(30), nullable=True)  # The username can be NULL as per your table definition
+    username = Column(String(30), nullable=True)  
     password = Column(String(60), nullable=False)
 
     def __repr__(self):
@@ -82,8 +82,8 @@ class UserClass(Base):
     __tablename__ = 'user_class'
     
     user_class_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)  # Assuming there is a users table
-    class_id = Column(Integer, ForeignKey('classes.class_id'), nullable=False)  # Assuming a relationship with the classes table
+    user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)  
+    class_id = Column(Integer, ForeignKey('classes.class_id'), nullable=False)  
 
     def __repr__(self):
         return f"<UserClass(user_class_id={self.user_class_id}, user_id={self.user_id}, class_id={self.class_id})>"
@@ -121,19 +121,19 @@ user_classes = [
 for user_data in users:
     user = User(**user_data)
     session.add(user)
-# session.commit()  # Commit users
+# session.commit()  
 
 # Add classes to the session and commit
 for class_data in classes:
     class_ = Class(**class_data)
     session.add(class_)
-# session.commit()  # Commit classes **This step must occur before adding events**
+# session.commit()  
 
 # Now that classes are committed, add events to the session and commit
 for event_data in events:
     event = Event(**event_data)
     session.add(event)
-# session.commit()  # Commit events
+# session.commit() 
 
 # Add trades to the session and commit
 for trade_data in trades:
@@ -141,7 +141,7 @@ for trade_data in trades:
     session.add(trade)
 # session.commit()  # Commit trades
 
-# Finally, add user_classes to the session and commit
+#add user_classes to the session and commit
 for user_class_data in user_classes:
     user_class = UserClass(**user_class_data)
     session.add(user_class)
