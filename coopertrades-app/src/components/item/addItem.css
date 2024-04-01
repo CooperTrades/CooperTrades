@@ -1,0 +1,26 @@
+.addItemForm {
+  margin: 20px 0;
+}
+
+.addItemForm form > div {
+  margin-bottom: 10px;
+}
+
+.addItemForm input[type="text"],
+.addItemForm input[type="number"],
+.addItemForm button {
+  padding: 8px;
+  margin: 4px 0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.addItemForm button {
+  background-color: #4CAF50;
+  color: white;
+  cursor: pointer;
+}
+
+.addItemForm button:hover {
+  background-color: #45a049;
+}

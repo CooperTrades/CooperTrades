@@ -61,11 +61,11 @@ def get_items(request):
 
 @view_config(route_name='add_item', request_method='POST', renderer='json')
 def add_item(request: Request):
+    print("add_item view called")
     description = request.params.get('description')
     category = request.params.get('category')
     condition = request.params.get('condition')
-    # Assuming a user_id is passed or determined some other way
-    user_id = request.params.get('user_id')
+    user_id = request.params.get('user_id') # for now, will maybe need to just do something else but maybe not
 
     if not all([description, category, condition, user_id]):
         return Response(json_body={'error': 'Missing fields'}, status=400)
@@ -78,17 +78,31 @@ def add_item(request: Request):
 
 def add_cors_headers_response_callback(event):
     def cors_headers(request, response):
-        response.headers.update({
+        response.headers.extend({
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST,GET,OPTIONS',
-            'Access-Control-Allow-Headers': 'Origin, Content-Type, Accept',
+            'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Origin, Content-Type, Accept, Authorization',
+            'Access-Control-Allow-Credentials': 'true',  # If your front-end needs to send credentials
         })
     event.request.add_response_callback(cors_headers)
+
+
+@view_config(route_name='cors_preflight', request_method='OPTIONS')
+def cors_preflight_view(request):
+    return Response(
+        body='',
+        headers={
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Accept',
+        },
+    )
 
 if __name__ == '__main__':
     with Configurator() as config:
         config.add_subscriber(add_cors_headers_response_callback, NewResponse)
         config.add_route('get_items', '/items')
+        config.add_route('cors_preflight', '/items/add')
         config.add_route('add_item', '/items/add')
         config.scan()
         app = config.make_wsgi_app()
