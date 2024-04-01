@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Item Management</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        ul { list-style-type: none; padding: 0; }
+        li { margin: 8px 0; }
+        form > div { margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Item Management</h1>
+    <h2>Add Item</h2>
+    <form id="addItemForm">
+        <div>
+            Description: <input type="text" id="description" name="description" required>
+        </div>
+        <div>
+            Category: <input type="text" id="category" name="category" required>
+        </div>
+        <div>
+            Condition: <input type="text" id="condition" name="condition" required>
+        </div>
+        <div>
+            User ID: <input type="number" id="user_id" name="user_id" required>
+        </div>
+        <button type="submit">Add Item</button>
+    </form>
+
+    <h2>Items</h2>
+    <ul id="itemList"></ul>
+
+    <script>
+        const addItemForm = document.getElementById('addItemForm');
+        const itemList = document.getElementById('itemList');
+
+        async function fetchItems() {
+            const response = await fetch('http://localhost:6543/items');
+            const items = await response.json();
+            itemList.innerHTML = items.map(item =>
+                `<li>${item.description} (Category: ${item.category}, Condition: ${item.condition})</li>`
+            ).join('');
+        }
+
+        addItemForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const formData = new FormData(addItemForm);
+            const response = await fetch('http://localhost:6543/items/add', {
+                method: 'POST',
+                body: new URLSearchParams(formData)
+            });
+            const result = await response.json();
+            alert(result.message);
+            fetchItems(); // Reload items
+            addItemForm.reset(); // Reset form fields
+        });
+
+        // Initial fetch of items
+        fetchItems();
+    </script>
+</body>
+</html>
