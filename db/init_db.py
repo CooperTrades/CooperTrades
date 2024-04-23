@@ -1,4 +1,6 @@
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey, DateTime, text
+import enum
+
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey, DateTime, text, Enum
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.sql import func
@@ -6,17 +8,23 @@ from datetime import datetime
 
 Base = declarative_base()
 
+class TradeStatus(enum.Enum):
+    AVAILABLE = "Available"
+    PENDING = "Pending"
+    NOT_AVAILABLE = "Not Available"
+
+
 class Item(Base):
     __tablename__ = 'items'
-
     item_id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
     description = Column(String(255), nullable=True)
     category = Column(String(255), nullable=False)
     condition = Column(String(255), nullable=False)
+    trade_status = Column(Enum(TradeStatus), default=TradeStatus.AVAILABLE)
 
     def __repr__(self):
-        return f"<Item(item_id={self.item_id}, name='{self.name}', description='{self.description}', category='{self.category}', condition='{self.condition}')>"
+        return f"<Item(item_id={self.item_id}, name='{self.name}', description='{self.description}', category='{self.category}', condition='{self.condition}', trade_status='{self.trade_status}')>"
 
 class Trade(Base):
     __tablename__ = 'trades'
@@ -71,8 +79,8 @@ session.add(user2)
 session.commit()
 
 # Insert dummy items, assuming the users now have their IDs
-item1 = Item(user_id=user1.user_id, description='A beautiful canvas painting', category='Art', condition='New')
-item2 = Item(user_id=user2.user_id, description='Vintage leather-bound notebook', category='Stationery', condition='Used')
+item1 = Item(user_id=user1.user_id, description='A beautiful canvas painting', category='Art', condition='New', trade_status="AVAILABLE")
+item2 = Item(user_id=user2.user_id, description='Vintage leather-bound notebook', category='Stationery', condition='Used', trade_status="NOT_AVAILABLE")
 
 session.add(item1)
 session.add(item2)
