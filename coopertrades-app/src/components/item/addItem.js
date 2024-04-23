@@ -18,16 +18,49 @@ function AddItem({ onItemAdded }) {
     }));
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    try {
-      await axios.post('http://localhost:6543/items/add', formData);
-      onItemAdded(); // Notify the parent component to refresh the item list
-      setFormData({ description: '', category: '', condition: '', user_id: '' }); // Reset form fields
-    } catch (error) {
-      console.error('There was an error adding the item:', error);
-    }
-  };
+const handleSubmit = async (event) => {
+ event.preventDefault();
+ try {
+   // Use JSON.stringify to convert formData to a JSON string
+   const jsonFormData = JSON.stringify(formData);
+
+   // Include the Content-Type header
+   const config = {
+     headers: {
+       'Content-Type': 'application/json'
+     }
+   };
+
+   // Pass jsonFormData and config to axios.post
+   await axios.post('http://localhost:6543/items/add', jsonFormData, config);
+   onItemAdded(); // Notify the parent component to refresh the item list
+   setFormData({ description: '', category: '', condition: '', user_id: '' }); // Reset form fields
+ } catch (error) {
+   console.error('There was an error adding the item:', error);
+ }
+};
+// const handleSubmit = async (event) => {
+//   event.preventDefault();
+//   try {
+//     // Convert formData to URL-encoded string
+//     const formBody = Object.keys(formData).map(key => encodeURIComponent(key) + '=' + encodeURIComponent(formData[key])).join('&');
+//
+//     // Include the Content-Type header for URL-encoded form data
+//     const config = {
+//       headers: {
+//         'Content-Type': 'application/x-www-form-urlencoded'
+//       }
+//     };
+//
+//     // Pass formBody and config to axios.post
+//     await axios.post('http://localhost:6543/items/add', formBody, config);
+//     onItemAdded(); // Notify the parent component to refresh the item list
+//     setFormData({ description: '', category: '', condition: '', user_id: '' }); // Reset form fields
+//   } catch (error) {
+//     console.error('There was an error adding the item:', error);
+//   }
+// };
+
 
   return (
     <div className="addItemForm">

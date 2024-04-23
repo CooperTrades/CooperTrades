@@ -57,7 +57,7 @@ class User(Base):
 
 engine = create_engine('postgresql+psycopg2://postgres:dbpassword@localhost:5435/postgres', echo=True)
 # After dropping and recreating tables
-# Base.metadata.drop_all(engine)
+Base.metadata.drop_all(engine)
 Base.metadata.create_all(engine)
 
 Session = sessionmaker(bind=engine)
