@@ -8,7 +8,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 from pyramid.view import view_config
 from pyramid.response import Response
-from pyramid.events import NewResponse
+from pyramid.httpexceptions import HTTPNotFound, HTTPBadRequest, HTTPOk
 
 Base = declarative_base()
 
@@ -49,6 +49,7 @@ class Trade(Base):
     # Index for commonly queried columns
     # idx_trade_status = Index('idx_trade_status', 'requester_id', 'status')
 
+# add relationships
 
 class User(Base):
     __tablename__ = 'users'
@@ -61,8 +62,14 @@ class User(Base):
 @view_config(route_name='get_items', renderer='json')
 def get_items(request):
     items = DBSession.query(Item).all()
-    return [{"id": item.item_id, "description": item.description, "category": item.category} for item in items]
-
+    return [{
+        "id": item.item_id,
+        "user_id": item.user_id,
+        "description": item.description,
+        "category": item.category,
+        "condition": item.condition,
+        "trade_status": item.trade_status.name  # Return the name of the enum value for clarity
+    } for item in items]
 
 @view_config(route_name='add_item', request_method='POST', renderer='json')
 def add_item(request):
@@ -163,6 +170,45 @@ def execute_trade(request):
     except Exception as e:
         return Response(json_body={'error': str(e)}, status=500)
 
+@view_config(route_name='initiate_trade', request_method='POST', renderer='json')
+def initiate_trade(request):
+    try:
+        data = request.json_body
+        requester_item_id = data['requester_item_id']
+        accepter_item_id = data['accepter_item_id']
+
+        # Fetch the items involved in the trade
+        requester_item = DBSession.query(Item).filter_by(item_id=requester_item_id).one_or_none()
+        accepter_item = DBSession.query(Item).filter_by(item_id=accepter_item_id).one_or_none()
+
+        # Validate item existence
+        if not requester_item or not accepter_item:
+            return HTTPNotFound(json={'message': 'One or more items not found'})
+
+        # Ensure items belong to different users
+        if requester_item.user_id == accepter_item.user_id:
+            return HTTPBadRequest(json={'message': 'Trade cannot be executed, items belong to the same user'})
+
+        # Update trade status to pending
+        requester_item.trade_status = TradeStatus.PENDING
+        accepter_item.trade_status = TradeStatus.PENDING
+
+        # Create and add the trade record
+        new_trade = Trade(
+            requester_id=requester_item.user_id,
+            accepter_id=accepter_item.user_id,
+            requester_item_id=requester_item_id,
+            accepter_item_id=accepter_item_id,
+            status=False,  # False means the trade is not accepted yet
+            post_time=func.now()
+        )
+        DBSession.add(new_trade)
+        DBSession.commit()
+
+        return HTTPOk(json={'message': 'Trade initiated successfully', 'trade_id': new_trade.trade_id})
+    except Exception as e:
+        return Response(json_body={'error': str(e)}, status=500)
+
 @view_config(route_name='available_items', renderer='json')
 def available_items(request):
     # Fetch items where trade_status is AVAILABLE and join with User to get user details
@@ -213,6 +259,7 @@ if __name__ == '__main__':
         config.add_route('add_user', '/users/add')
         config.add_route('login', '/login')
         config.add_route('execute_trade', '/trade/execute')
+        config.add_route('initiate_trade', '/trade/initiate')
         config.add_route('available_items', '/items/available')
         config.add_route('user_details', '/user/{id}')
 
