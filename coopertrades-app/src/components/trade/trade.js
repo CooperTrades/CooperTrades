@@ -35,20 +35,23 @@ function Trade() {
 
     const confirmTrade = async (requesterItemId) => {
         try {
-            console.log("requesterItemId", requesterItemId);
-            console.log("selectedItemForTrade", selectedItemForTrade);
+            console.log("requesterItemId:", requesterItemId);
+            console.log("selectedItemForTrade:", selectedItemForTrade);
+    
             const response = await axios.post('http://localhost:6543/trade/execute', {
                 requester_item_id: requesterItemId,
                 accepter_item_id: selectedItemForTrade
             });
+    
             alert(response.data.message || 'Trade initiated successfully!');
             setShowModal(false);
-            fetchItems(); // Refresh items list
+            fetchItems();  // Refresh items list
         } catch (error) {
             console.error('Error initiating trade:', error);
             alert('Failed to initiate trade');
         }
     };
+    
 
     return (
         <div className="trade-container">
@@ -59,7 +62,7 @@ function Trade() {
                         {myItems.map(item => (
                             <li key={item.item_id}>
                                 <div>Description: {item.description}</div>
-                                <button onClick={() => confirmTrade(item.item_id)}>Select for Trade</button>
+                                <button onClick={() => confirmTrade(item.user_id)}>Select for Trade</button>
                             </li>
                         ))}
                     </ul>
@@ -87,7 +90,7 @@ function Trade() {
                                 <div>Description: {item.description}</div>
                                 <div>Category: {item.category}</div>
                                 <div>Condition: {item.condition}</div>
-                                <button onClick={() => handleTradeInitiation(item.item_id)}>Initiate Trade</button>
+                                <button onClick={() => handleTradeInitiation(item.user_id)}>Initiate Trade</button>
                             </li>
                         ))}
                     </ul>
