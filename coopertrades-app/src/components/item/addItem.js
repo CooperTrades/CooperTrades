@@ -50,10 +50,20 @@ function AddItem({ onItemAdded }) {
                     Description: <input type="text" name="description" value={formData.description} onChange={handleChange} required />
                 </div>
                 <div>
-                    Category: <input type="text" name="category" value={formData.category} onChange={handleChange} required />
+                    Category:
+                    <select name="category" value={formData.category} onChange={handleChange} required>
+                        <option value="ART">Art</option>
+                        <option value="CLOTHING">Clothing</option>
+                        <option value="MISC">Misc</option>
+                    </select>
                 </div>
                 <div>
-                    Condition: <input type="text" name="condition" value={formData.condition} onChange={handleChange} required />
+                    Condition:
+                    <select name="condition" value={formData.condition} onChange={handleChange} required>
+                        <option value="NEW">New</option>
+                        <option value="USED">Used</option>
+                        <option value="OLD">Old</option>
+                    </select>
                 </div>
                 <div>
                     User ID: <input type="number" name="user_id" value={formData.user_id} onChange={handleChange} required />

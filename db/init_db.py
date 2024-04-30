@@ -13,14 +13,24 @@ class TradeStatus(enum.Enum):
     PENDING = "Pending"
     NOT_AVAILABLE = "Not Available"
 
+class Category(enum.Enum):
+    ART = "Art"
+    CLOTHING = "Clothing"
+    MISC = "MISC"
+
+class Condition(enum.Enum):
+    NEW = "New"
+    USED = "Used"
+    OLD = "Old"
+
 
 class Item(Base):
     __tablename__ = 'items'
     item_id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
     description = Column(String(255), nullable=True)
-    category = Column(String(255), nullable=False)
-    condition = Column(String(255), nullable=False)
+    category = Column(Enum(Category), default=Category.MISC)
+    condition = Column(Enum(Condition), default= Condition.NEW)
     trade_status = Column(Enum(TradeStatus), default=TradeStatus.AVAILABLE)
 
     def __repr__(self):
@@ -79,8 +89,8 @@ session.add(user2)
 session.commit()
 
 # Insert dummy items, assuming the users now have their IDs
-item1 = Item(user_id=user1.user_id, description='A beautiful canvas painting', category='Art', condition='New', trade_status="AVAILABLE")
-item2 = Item(user_id=user2.user_id, description='Vintage leather-bound notebook', category='Stationery', condition='Used', trade_status="NOT_AVAILABLE")
+item1 = Item(user_id=user1.user_id, description='A beautiful canvas painting', category='ART', condition='NEW', trade_status="AVAILABLE")
+item2 = Item(user_id=user2.user_id, description='Vintage leather-bound jacket', category='CLOTHING', condition='USED', trade_status="NOT_AVAILABLE")
 
 session.add(item1)
 session.add(item2)
