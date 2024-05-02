@@ -2,8 +2,8 @@ import enum
 from wsgiref.simple_server import make_server
 from pyramid.config import Configurator
 from pyramid.httpexceptions import HTTPForbidden
-from sqlalchemy.orm import scoped_session, sessionmaker
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey, DateTime, Enum
+from sqlalchemy.orm import scoped_session, sessionmaker, relationship
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey, DateTime, Enum, Index
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 from pyramid.view import view_config
@@ -22,6 +22,70 @@ class TradeStatus(enum.Enum):
     NOT_AVAILABLE = "Not Available"
 
 
+# class Category(enum.Enum):
+#     ART = "Art"
+#     CLOTHING = "Clothing"
+#     MISC = "Misc"
+#
+#
+# class Condition(enum.Enum):
+#     NEW = "New"
+#     USED = "Used"
+#     OLD = "Old"
+
+
+# class Item(Base):
+#     __tablename__ = 'items'
+#     item_id = Column(Integer, primary_key=True, autoincrement=True)
+#     user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
+#     description = Column(String(255), nullable=True)
+#     category = Column(Enum(Category), default=Category.MISC, nullable=False)
+#     condition = Column(Enum(Condition), default=Condition.NEW, nullable=False)
+#     trade_status = Column(Enum(TradeStatus), default=TradeStatus.AVAILABLE, nullable=False)
+#
+#     # Indexes
+#     __table_args__ = (
+#         Index('idx_category', 'category'),
+#         Index('idx_condition', 'condition'),
+#     )
+#
+#     user = relationship("User", back_populates="items")
+#
+#
+# # Trade class with relationships
+# class Trade(Base):
+#     __tablename__ = 'trades'
+#
+#     trade_id = Column(Integer, primary_key=True, autoincrement=True)
+#     requester_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
+#     accepter_id = Column(Integer, ForeignKey('users.user_id'), nullable=True)
+#     requester_item_id = Column(Integer, ForeignKey('items.item_id'), nullable=False)
+#     accepter_item_id = Column(Integer, ForeignKey('items.item_id'), nullable=True)
+#     status = Column(Boolean, nullable=False)
+#     post_time = Column(DateTime, default=func.now(), nullable=False)
+#     accept_time = Column(DateTime, nullable=True)
+#
+#     requester = relationship("User", foreign_keys=[requester_id], back_populates="requested_trades")
+#     accepter = relationship("User", foreign_keys=[accepter_id], back_populates="accepted_trades")
+#
+#     requester_item = relationship("Item", foreign_keys=[requester_item_id])
+#     accepter_item = relationship("Item", foreign_keys=[accepter_item_id])
+#
+#
+# # User class with relationships
+# class User(Base):
+#     __tablename__ = 'users'
+#
+#     user_id = Column(Integer, primary_key=True, autoincrement=True)
+#     email = Column(String(254), nullable=False)
+#     username = Column(String(30), nullable=True)
+#     password = Column(String(60), nullable=False)
+#
+#     items = relationship("Item", back_populates="user")
+#     requested_trades = relationship("Trade", foreign_keys=[Trade.requester_id], back_populates="requester")
+#     accepted_trades = relationship("Trade", foreign_keys=[Trade.accepter_id], back_populates="accepter")
+
+
 class Item(Base):
     __tablename__ = 'items'
     item_id = Column(Integer, primary_key=True, autoincrement=True)
@@ -31,8 +95,13 @@ class Item(Base):
     condition = Column(String(255), nullable=False)
     trade_status = Column(Enum(TradeStatus), default=TradeStatus.AVAILABLE)
 
-    # Creating an index on user_id
-    # idx_user_id = Index('idx_user_id', 'user_id')
+    # Indexes
+    __table_args__ = (
+        Index('idx_category', 'category'),
+        Index('idx_condition', 'condition'),
+    )
+
+    user = relationship("User", back_populates="items")
 
 
 class Trade(Base):
@@ -46,6 +115,11 @@ class Trade(Base):
     post_time = Column(DateTime, default=func.now(), nullable=False)
     accept_time = Column(DateTime, nullable=True)
 
+    requester = relationship("User", foreign_keys=[requester_id], back_populates="requested_trades")
+    accepter = relationship("User", foreign_keys=[accepter_id], back_populates="accepted_trades")
+
+    requester_item = relationship("Item", foreign_keys=[requester_item_id])
+    accepter_item = relationship("Item", foreign_keys=[accepter_item_id])
     # Index for commonly queried columns
     # idx_trade_status = Index('idx_trade_status', 'requester_id', 'status')
 
@@ -57,6 +131,76 @@ class User(Base):
     email = Column(String(254), nullable=False)
     username = Column(String(30), nullable=True)
     password = Column(String(60), nullable=False)
+
+    items = relationship("Item", back_populates="user")
+    requested_trades = relationship("Trade", foreign_keys=[Trade.requester_id], back_populates="requester")
+    accepted_trades = relationship("Trade", foreign_keys=[Trade.accepter_id], back_populates="accepter")
+# class TradeStatus(enum.Enum):
+#     AVAILABLE = "Available"
+#     PENDING = "Pending"
+#     NOT_AVAILABLE = "Not Available"
+#
+# class Category(enum.Enum):
+#     ART = "Art"
+#     CLOTHING = "Clothing"
+#     MISC = "Misc"
+#
+# class Condition(enum.Enum):
+#     NEW = "New"
+#     USED = "Used"
+#     OLD = "Old"
+#
+# # Item class with indexes and relationships
+# class Item(Base):
+#     __tablename__ = 'items'
+#     item_id = Column(Integer, primary_key=True, autoincrement=True)
+#     user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
+#     description = Column(String(255), nullable=True)
+#     category = Column(Enum(Category), default=Category.MISC, nullable=False)
+#     condition = Column(Enum(Condition), default=Condition.NEW, nullable=False)
+#     trade_status = Column(Enum(TradeStatus), default=TradeStatus.AVAILABLE, nullable=False)
+#
+#     # Indexes
+#     __table_args__ = (
+#         Index('idx_category', 'category'),
+#         Index('idx_condition', 'condition'),
+#     )
+#
+#     user = relationship("User", back_populates="items")
+#
+#
+# # Trade class with relationships
+# class Trade(Base):
+#     __tablename__ = 'trades'
+#
+#     trade_id = Column(Integer, primary_key=True, autoincrement=True)
+#     requester_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
+#     accepter_id = Column(Integer, ForeignKey('users.user_id'), nullable=True)
+#     requester_item_id = Column(Integer, ForeignKey('items.item_id'), nullable=False)
+#     accepter_item_id = Column(Integer, ForeignKey('items.item_id'), nullable=True)
+#     status = Column(Boolean, nullable=False)
+#     post_time = Column(DateTime, default=func.now(), nullable=False)
+#     accept_time = Column(DateTime, nullable=True)
+#
+#     requester = relationship("User", foreign_keys=[requester_id], back_populates="requested_trades")
+#     accepter = relationship("User", foreign_keys=[accepter_id], back_populates="accepted_trades")
+#
+#     requester_item = relationship("Item", foreign_keys=[requester_item_id])
+#     accepter_item = relationship("Item", foreign_keys=[accepter_item_id])
+#
+#
+# # User class with relationships
+# class User(Base):
+#     __tablename__ = 'users'
+#
+#     user_id = Column(Integer, primary_key=True, autoincrement=True)
+#     email = Column(String(254), nullable=False)
+#     username = Column(String(30), nullable=True)
+#     password = Column(String(60), nullable=False)
+#
+#     items = relationship("Item", back_populates="user")
+#     requested_trades = relationship("Trade", foreign_keys=[Trade.requester_id], back_populates="requester")
+#     accepted_trades = relationship("Trade", foreign_keys=[Trade.accepter_id], back_populates="accepter")
 
 
 @view_config(route_name='get_items', renderer='json')
@@ -71,6 +215,7 @@ def get_items(request):
         "trade_status": item.trade_status.name  # Return the name of the enum value for clarity
     } for item in items]
 
+
 @view_config(route_name='add_item', request_method='POST', renderer='json')
 def add_item(request):
     try:
@@ -81,7 +226,7 @@ def add_item(request):
             description=data['description'],
             category=data['category'],
             condition=data['condition'],
-            trade_status = trade_status
+            trade_status=trade_status
         )
         DBSession.add(new_item)
         DBSession.commit()
@@ -106,6 +251,7 @@ def add_user(request):
 def get_users(request):
     users = DBSession.query(User).all()
     return [{'user_id': user.user_id, 'email': user.email, 'username': user.username} for user in users]
+
 
 @view_config(route_name='user_details', renderer='json')
 def user_details(request):
@@ -170,6 +316,7 @@ def execute_trade(request):
     except Exception as e:
         return Response(json_body={'error': str(e)}, status=500)
 
+
 @view_config(route_name='initiate_trade', request_method='POST', renderer='json')
 def initiate_trade(request):
     try:
@@ -209,10 +356,12 @@ def initiate_trade(request):
     except Exception as e:
         return Response(json_body={'error': str(e)}, status=500)
 
+
 @view_config(route_name='available_items', renderer='json')
 def available_items(request):
     # Fetch items where trade_status is AVAILABLE and join with User to get user details
-    items = DBSession.query(Item, User).join(User, Item.user_id == User.user_id).filter(Item.trade_status == TradeStatus.AVAILABLE).all()
+    items = DBSession.query(Item, User).join(User, Item.user_id == User.user_id).filter(
+        Item.trade_status == TradeStatus.AVAILABLE).all()
     return [{
         'item_id': item[0].item_id,
         'description': item[0].description,
