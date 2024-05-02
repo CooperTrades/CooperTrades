@@ -56,6 +56,14 @@ class Trade(Base):
     requester_item = relationship("Item", foreign_keys=[requester_item_id])
     accepter_item = relationship("Item", foreign_keys=[accepter_item_id])
 
+    # Indexes
+    __table_args__ = (
+        Index('idx_requester_id', 'requester_id'),
+        Index('idx_accepter_id', 'accepter_id'),
+        Index('idx_requester_item_id', 'requester_item_id'),
+        Index('idx_accepter_item_id', 'accepter_item_id'),
+    )
+
 
 
 class User(Base):
