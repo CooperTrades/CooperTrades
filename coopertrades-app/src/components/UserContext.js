@@ -6,9 +6,10 @@ export const useUser = () => useContext(UserContext);
 
 export const UserProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-
+    const [user_id, setuser_id] = useState(null);
     const login = (userData) => {
         setUser(userData);
+        setuser_id(userData.user_id);
     };
 
     const logout = () => {

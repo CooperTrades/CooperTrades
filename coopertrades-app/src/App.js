@@ -1,7 +1,7 @@
-import React from 'react';
+import React, {useContext} from 'react';
 import axios from 'axios';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { UserProvider } from './components/UserContext';
+import {UserContext, UserProvider, useUser} from './components/UserContext';
 import AddItem from './components/item/addItem';
 import CreateUser from './components/user/CreateUser';
 import Login from './components/login/login';
@@ -11,6 +11,9 @@ import './App.css';
 
 function App() {
     const [items, setItems] = React.useState([]);
+    const userData = useContext(UserContext);  // Access the context
+
+    const user = userData ? userData.user : null;  // Check null
 
     React.useEffect(() => {
         fetchItems();
@@ -30,6 +33,9 @@ function App() {
             <Router>
                 <div className="App">
                     <h1>CooperTrades</h1>
+                    <div className="user-id">
+                        {user ? `User ID: ${user.user_id}` : "Not logged in"}
+                    </div>
                     <nav>
                         <Link to="/">Home</Link> |
                         <Link to="/create-user">Create User</Link> |
@@ -40,7 +46,7 @@ function App() {
                     <Routes>
                         <Route path="/" element={
                             <>
-                                <AddItem onItemAdded={fetchItems} />
+                                <AddItem onItemAdded={fetchItems}/>
                                 <h2>Items</h2>
                                 <ul>
                                     {items.map(item => (
@@ -48,11 +54,11 @@ function App() {
                                     ))}
                                 </ul>
                             </>
-                        } />
-                        <Route path="/create-user" element={<CreateUser />} />
-                        <Route path="/login" element={<Login />} />
-                        <Route path="/trades" element={<Trade />} />
-                        <Route path="/profile" element={<Profile />} />
+                        }/>
+                        <Route path="/create-user" element={<CreateUser/>}/>
+                        <Route path="/login" element={<Login/>}/>
+                        <Route path="/trades" element={<Trade/>}/>
+                        <Route path="/profile" element={<Profile/>}/>
                     </Routes>
                 </div>
             </Router>

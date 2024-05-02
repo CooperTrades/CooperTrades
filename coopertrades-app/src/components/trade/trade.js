@@ -125,6 +125,7 @@ function Trade() {
                                 <div>Description: {item.description}</div>
                                 <div>Category: {item.category}</div>
                                 <div>Condition: {item.condition}</div>
+                                <div>Owner: {item.user_id}</div>
                                 <button onClick={() => handleTradeInitiation(item.user_id)}>Initiate Trade</button>
                             </li>
                         ))}
