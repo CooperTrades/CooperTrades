@@ -51,7 +51,7 @@ function Trade() {
         try {
             console.log("requesterItemId:", requesterItemId);
             console.log("selectedItemForTrade:", selectedItemForTrade);
-            const response = await axios.post('http://localhost:6543/trade/execute', {
+            const response = await axios.post('http://localhost:6543/trade/initiate', {
                 requester_item_id: requesterItemId,
                 accepter_item_id: selectedItemForTrade
             });
@@ -63,7 +63,7 @@ function Trade() {
             alert('Failed to initiate trade');
         }
     };
-    
+
 
     return (
         <div className="trade-container">

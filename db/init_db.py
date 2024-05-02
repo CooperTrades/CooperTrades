@@ -176,10 +176,10 @@ session.add(item2)
 session.commit()
 
 # Insert a dummy trade
-trade = Trade(requester_id=user1.user_id, accepter_id=user2.user_id, requester_item_id=item1.item_id, accepter_item_id=item2.item_id, status=True)
-
-session.add(trade)
-session.commit()
+# trade = Trade(requester_id=user1.user_id, accepter_id=user2.user_id, requester_item_id=item1.item_id, accepter_item_id=item2.item_id, status=True)
+#
+# session.add(trade)
+# session.commit()
 session.close()
 
 conn = engine.connect()

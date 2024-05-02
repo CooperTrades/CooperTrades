@@ -55,10 +55,8 @@ class Trade(Base):
 
     requester_item = relationship("Item", foreign_keys=[requester_item_id])
     accepter_item = relationship("Item", foreign_keys=[accepter_item_id])
-    # Index for commonly queried columns
-    # idx_trade_status = Index('idx_trade_status', 'requester_id', 'status')
 
-# add relationships
+
 
 class User(Base):
     __tablename__ = 'users'
@@ -173,15 +171,58 @@ def execute_trade(request):
 
         # Check if items exist and belong to different users
         if requester_item and accepter_item and requester_item.user_id != accepter_item.user_id:
+            trade = DBSession.query(Trade).filter_by(requester_item_id=requester_item_id,
+                                                     accepter_item_id=accepter_item_id).one()
+
+            # Update the trade's accept_time to the current time
+            trade.accept_time = func.now()
+
             # Swap the user_ids
             temp = requester_item.user_id
             requester_item.user_id = accepter_item.user_id
             accepter_item.user_id = temp
 
+            requester_item.trade_status = 'NOT_AVAILABLE'
+            accepter_item.trade_status = 'NOT_AVAILABLE'
+
             # Commit changes to the database
             DBSession.commit()
             return {'message': 'Trade executed successfully'}
         return {'message': 'Trade cannot be executed'}
+    except Exception as e:
+        return Response(json_body={'error': str(e)}, status=500)
+
+
+@view_config(route_name='get_trades_by_accepter', renderer='json')
+def get_trades_by_accepter(request):
+    try:
+        data = request.json_body  # Parse the request's JSON body
+        accepter_id = data['accepter_id']
+
+        # Fetch trades where accepter_id matches the given ID
+        trades = DBSession.query(Trade).filter_by(accepter_id=accepter_id).all()
+
+        # If no trades are found
+        if not trades:
+            return {'message': 'No trades found'}
+
+        # Collect requester items by looking up in the Item table
+        requester_items = []
+        for trade in trades:
+            item = DBSession.query(Item).filter_by(item_id=trade.requester_item_id).one_or_none()
+
+            # Add item details to the list if found
+            if item:
+                requester_items.append({
+                    "item_id": item.item_id,
+                    "user_id": item.user_id,
+                    "description": item.description,
+                    "category": item.category,
+                    "condition": item.condition,
+                    "trade_status": item.trade_status.name
+                })
+
+        return {"requester_items": requester_items}
     except Exception as e:
         return Response(json_body={'error': str(e)}, status=500)
 
@@ -279,6 +320,7 @@ if __name__ == '__main__':
         config.add_route('initiate_trade', '/trade/initiate')
         config.add_route('available_items', '/items/available')
         config.add_route('user_details', '/user/{id}')
+        config.add_route('get_trades_by_accepter', '/trades/accepter')
 
         config.scan()
         app = config.make_wsgi_app()
