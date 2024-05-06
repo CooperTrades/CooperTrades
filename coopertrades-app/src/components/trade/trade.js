@@ -11,8 +11,8 @@ function Trade() {
     const { user } = useContext(UserContext);
 
     // State for filtering options
-    const [selectedCategory, setSelectedCategory] = useState('');
-    const [selectedCondition, setSelectedCondition] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState("");
+    const [selectedCondition, setSelectedCondition] = useState("");
 
     useEffect(() => {
         fetchItems();
@@ -28,14 +28,17 @@ function Trade() {
                 item.trade_status === "AVAILABLE"
             );
 
-            const otherAvailableItems = availableItems.filter(item =>
-                item.user_id !== user.user_id &&
-                item.trade_status === "AVAILABLE" &&
-                (selectedCategory ? item.category === selectedCategory : true) &&
-                (selectedCondition ? item.condition === selectedCondition : true)
-            );
-
             setMyItems(myAvailableItems);
+            const requestBody = {};
+            if (selectedCategory) {
+                requestBody.category = selectedCategory;
+            }
+            if (selectedCondition) {
+                requestBody.condition = selectedCondition;
+            }
+            requestBody.user_id = user.user_id;
+            const otherAvailableItemsResponse = await axios.post('http://localhost:6543/items/filter', requestBody);
+            const otherAvailableItems = otherAvailableItemsResponse.data || [];
             setOtherItems(otherAvailableItems);
         } catch (error) {
             console.error('Error fetching available items:', error);
@@ -86,7 +89,7 @@ function Trade() {
                 <label>
                     Category:
                     <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)}>
-                        <option value="">All</option>
+                        <option value="ALL">All</option>
                         <option value="ART">Art</option>
                         <option value="CLOTHING">Clothing</option>
                         <option value="MISC">Misc</option>
@@ -96,7 +99,7 @@ function Trade() {
                 <label>
                     Condition:
                     <select value={selectedCondition} onChange={e => setSelectedCondition(e.target.value)}>
-                        <option value="">All</option>
+                        <option value="ALL">All</option>
                         <option value="NEW">New</option>
                         <option value="USED">Used</option>
                         <option value="OLD">Old</option>

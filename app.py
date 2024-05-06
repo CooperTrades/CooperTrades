@@ -289,6 +289,45 @@ def available_items(request):
         'username': item[1].username
     } for item in items]
 
+
+@view_config(route_name='filter_items', renderer='json')
+def filter_items(request):
+    try:
+        data = request.json_body
+        selected_category = data.get('category')
+        selected_condition = data.get('condition')
+        user_id = data.get('user_id')
+
+        # Initialize the query on the Item table
+        query = DBSession.query(Item).filter(
+            Item.trade_status == 'AVAILABLE',
+            Item.user_id != user_id  # Exclude items owned by the same user
+        )
+
+        # Add category filter if selected_category is not empty
+        if selected_category:
+            query = query.filter(Item.category == selected_category)
+
+        # Add condition filter if selected_condition is not empty
+        if selected_condition:
+            query = query.filter(Item.condition == selected_condition)
+
+        # Execute the query
+        filtered_items = query.all()
+
+        # Prepare and return the response
+        return [{
+            "id": item.item_id,
+            "user_id": item.user_id,
+            "description": item.description,
+            "category": item.category,
+            "condition": item.condition,
+            "trade_status": item.trade_status.name
+        } for item in filtered_items]
+    except Exception as e:
+        return Response(json_body={'error': str(e)}, status=500)
+
+
 def add_cors_headers_response_callback(event):
     def cors_headers(request, response):
         response.headers.update({
@@ -329,6 +368,7 @@ if __name__ == '__main__':
         config.add_route('available_items', '/items/available')
         config.add_route('user_details', '/user/{id}')
         config.add_route('get_trades_by_accepter', '/trades/accepter')
+        config.add_route('filter_items', '/items/filter')
 
         config.scan()
         app = config.make_wsgi_app()
