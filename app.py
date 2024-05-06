@@ -3,7 +3,7 @@ from wsgiref.simple_server import make_server
 from pyramid.config import Configurator
 from pyramid.httpexceptions import HTTPForbidden
 from sqlalchemy.orm import scoped_session, sessionmaker, relationship
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey, DateTime, Enum, Index
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey, DateTime, Enum, Index, or_, and_
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 from pyramid.view import view_config
@@ -328,6 +328,51 @@ def filter_items(request):
         return Response(json_body={'error': str(e)}, status=500)
 
 
+@view_config(route_name='fuzzy_search_items', renderer='json')
+def fuzzy_search_items(request):
+    try:
+        data = request.json_body
+        search_query = data.get('query', '')  # Get the search query from the request body
+        selected_category = data.get('category')  # Get the category from the request
+        selected_condition = data.get('condition')  # Get the condition from the request
+        user_id = data.get('user_id')  # Optional: filter out items belonging to a specific user
+
+        # Start the query with initial condition
+        conditions = [Item.trade_status == 'AVAILABLE']
+
+        # Add the user_id condition to exclude items owned by the given user
+        if user_id:
+            conditions.append(Item.user_id != user_id)
+
+        # Add filters for category and condition if provided
+        if selected_category:
+            conditions.append(Item.category == selected_category)
+        if selected_condition:
+            conditions.append(Item.condition == selected_condition)
+
+        # Combine conditions using and_ if needed
+        query = DBSession.query(Item).filter(and_(*conditions))
+
+        # Apply fuzzy search only on the description
+        if search_query:
+            search_pattern = f'%{search_query}%'  # Prepare the search pattern for SQL LIKE
+            query = query.filter(Item.description.ilike(search_pattern))
+
+        # Execute the query
+        fuzzy_searched_items = query.all()
+
+        # Prepare and return the response
+        return [{
+            "id": item.item_id,
+            "user_id": item.user_id,
+            "description": item.description,
+            "category": item.category,
+            "condition": item.condition,
+            "trade_status": item.trade_status.name
+        } for item in fuzzy_searched_items]
+    except Exception as e:
+        return Response(json_body={'error': str(e)}, status=500)
+
 def add_cors_headers_response_callback(event):
     def cors_headers(request, response):
         response.headers.update({
@@ -369,6 +414,7 @@ if __name__ == '__main__':
         config.add_route('user_details', '/user/{id}')
         config.add_route('get_trades_by_accepter', '/trades/accepter')
         config.add_route('filter_items', '/items/filter')
+        config.add_route('fuzzy_search_items', '/items/fuzzy-search')
 
         config.scan()
         app = config.make_wsgi_app()

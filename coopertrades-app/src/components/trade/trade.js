@@ -14,9 +14,38 @@ function Trade() {
     const [selectedCategory, setSelectedCategory] = useState("");
     const [selectedCondition, setSelectedCondition] = useState("");
 
+    const [searchTerm, setSearchTerm] = useState('');
+
+
     useEffect(() => {
         fetchItems();
     }, [user, selectedCategory, selectedCondition]); // Refetch when user or filter options change
+
+    const searchItems = async () => {
+        try {
+            const requestBody = {};
+            if (selectedCategory) {
+                requestBody.category = selectedCategory;
+            }
+            if (selectedCondition) {
+                requestBody.condition = selectedCondition;
+            }
+            requestBody.user_id = user.user_id;
+            requestBody.query = searchTerm;
+
+            const response = await axios.post('http://localhost:6543/items/fuzzy-search', requestBody);
+            setOtherItems(response.data);
+            // if (response.status_code === 200) {
+            //     setOtherItems(response.data);  // Assuming the search returns items that are not owned by the user
+            //     console.log("Search results fetched successfully.");
+            // } else {
+            //     console.log("Failed to fetch search results.", error);
+            // }
+        } catch (error) {
+            console.error('Error performing search:', error);
+        }
+    };
+
 
     const fetchItems = async () => {
         try {
@@ -70,6 +99,15 @@ function Trade() {
 
     return (
         <div className="trade-container">
+            <div className="search-section">
+                <input
+                    type="text"
+                    placeholder="Search items..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                <button onClick={searchItems}>Search</button>
+            </div>
             {showModal && (
                 <div className="modal">
                     <h2>Select an Item to Trade</h2>
@@ -106,6 +144,7 @@ function Trade() {
                     </select>
                 </label>
             </div>
+
 
             <div className="trade-columns">
                 <div className="trade-column">
