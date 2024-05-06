@@ -21,6 +21,7 @@ class TradeStatus(enum.Enum):
     PENDING = "Pending"
     NOT_AVAILABLE = "Not Available"
 
+
 class Item(Base):
     __tablename__ = 'items'
     item_id = Column(Integer, primary_key=True, autoincrement=True)
@@ -63,7 +64,6 @@ class Trade(Base):
         Index('idx_requester_item_id', 'requester_item_id'),
         Index('idx_accepter_item_id', 'accepter_item_id'),
     )
-
 
 
 class User(Base):
@@ -373,6 +373,25 @@ def fuzzy_search_items(request):
     except Exception as e:
         return Response(json_body={'error': str(e)}, status=500)
 
+
+@view_config(route_name='update_item_status', request_method='POST', renderer='json')
+def update_item_status(request):
+    try:
+        data = request.json_body
+        item_id = data['item_id']
+        new_status = data['trade_status']
+
+        item = DBSession.query(Item).filter_by(item_id=item_id).first()
+        if item:
+            item.trade_status = new_status
+            DBSession.commit()
+            return {'message': 'Trade status updated successfully'}
+        return HTTPNotFound(json={'message': 'Item not found'})
+
+    except Exception as e:
+        return Response(json_body={'error': str(e)}, status=500)
+
+
 def add_cors_headers_response_callback(event):
     def cors_headers(request, response):
         response.headers.update({
@@ -415,6 +434,7 @@ if __name__ == '__main__':
         config.add_route('get_trades_by_accepter', '/trades/accepter')
         config.add_route('filter_items', '/items/filter')
         config.add_route('fuzzy_search_items', '/items/fuzzy-search')
+        config.add_route('update_item_status', '/item/update-status')
 
         config.scan()
         app = config.make_wsgi_app()
