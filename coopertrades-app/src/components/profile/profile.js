@@ -81,21 +81,6 @@ function Profile() {
                 <p>Email: {userInfo?.email}</p>
             </div>
             <h2>Listed Items</h2>
-            {/*<ul>*/}
-            {/*    {userInfo?.items.map(item => (*/}
-            {/*        <li key={item.item_id}>*/}
-            {/*            <p>Description: {item.description}</p>*/}
-            {/*            <p>Category: {item.category}</p>*/}
-            {/*            <p>Condition: {item.condition}</p>*/}
-            {/*            <p>Trade Status: {item.trade_status}</p>*/}
-            {/*            {item.trade_status === "PENDING" && (*/}
-            {/*                <button onClick={() => executeTrade(item.item_id)}>*/}
-            {/*                    Execute Trade*/}
-            {/*                </button>*/}
-            {/*            )}*/}
-            {/*        </li>*/}
-            {/*    ))}*/}
-            {/*</ul>*/}
             <ul>
                 {userInfo?.items.map(item => (
                     <li key={item.item_id}>
