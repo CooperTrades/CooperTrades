@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import axios from 'axios';
-import './addItem.css'; // Import the CSS file for styling
+import { UserContext } from '../UserContext'; // Update this path according to your project structure
+import './addItem.css';
 
 function AddItem({ onItemAdded }) {
+    const { user } = useContext(UserContext); // Access the user context
+
     const [formData, setFormData] = useState({
         description: '',
         category: '',
         condition: '',
-        user_id: '',
-        trade_status: 'AVAILABLE', // Default to 'AVAILABLE'
+        user_id: user ? user.user_id : '',
+        trade_status: 'AVAILABLE',
     });
 
     const handleChange = (event) => {
@@ -21,26 +24,34 @@ function AddItem({ onItemAdded }) {
 
     const handleSubmit = async (event) => {
         event.preventDefault();
+        if (!user) {
+            alert("You must be logged in to add items.");
+            return;
+        }
         try {
-            // Use JSON.stringify to convert formData to a JSON string
             const jsonFormData = JSON.stringify(formData);
-
-            // Include the Content-Type header
             const config = {
                 headers: {
                     'Content-Type': 'application/json'
                 }
             };
-
-            // Pass jsonFormData and config to axios.post
             const response = await axios.post('http://localhost:6543/items/add', jsonFormData, config);
             console.log('Server response:', response.data);
-            onItemAdded(); // Notify the parent component to refresh the item list
-            setFormData({ description: '', category: '', condition: '', user_id: '', trade_status: 'AVAILABLE' }); // Reset form fields
+            onItemAdded();
+            setFormData({ description: '', category: '', condition: '', user_id: user ? user.user_id : '', trade_status: 'AVAILABLE' });
         } catch (error) {
             console.error('There was an error adding the item:', error);
         }
     };
+
+    if (!user) {
+        return (
+            <div className="addItemForm">
+                <h2>Add Item</h2>
+                <p>You must be logged in to add an item. Please log in and try again.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="addItemForm">
@@ -64,9 +75,6 @@ function AddItem({ onItemAdded }) {
                         <option value="USED">Used</option>
                         <option value="OLD">Old</option>
                     </select>
-                </div>
-                <div>
-                    User ID: <input type="number" name="user_id" value={formData.user_id} onChange={handleChange} required />
                 </div>
                 <div>
                     Trade Status:
