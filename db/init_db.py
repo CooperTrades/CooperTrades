@@ -99,9 +99,13 @@ class Item(Base):
     trade_status = Column(Enum(TradeStatus), default=TradeStatus.AVAILABLE, nullable=False)
 
     # # Indexes
+    # __table_args__ = (
+    #     Index('idx_category', 'category'),
+    #     Index('idx_condition', 'condition'),
+    # )
+
     __table_args__ = (
-        Index('idx_category', 'category'),
-        Index('idx_condition', 'condition'),
+        Index('idx_category_condition_status', 'category', 'condition', 'trade_status'),
     )
 
     user = relationship("User", back_populates="items")
@@ -131,11 +135,15 @@ class Trade(Base):
     accepter_item = relationship("Item", foreign_keys=[accepter_item_id])
 
     # Indexes
+    # __table_args__ = (
+    #     Index('idx_requester_id', 'requester_id'),
+    #     Index('idx_accepter_id', 'accepter_id'),
+    #     Index('idx_requester_item_id', 'requester_item_id'),
+    #     Index('idx_accepter_item_id', 'accepter_item_id'),
+    # )
     __table_args__ = (
-        Index('idx_requester_id', 'requester_id'),
-        Index('idx_accepter_id', 'accepter_id'),
-        Index('idx_requester_item_id', 'requester_item_id'),
-        Index('idx_accepter_item_id', 'accepter_item_id'),
+        Index('idx_trade_requester_accepter', 'requester_id', 'accepter_id', 'status'),
+        Index('idx_trade_items', 'requester_item_id', 'accepter_item_id'),
     )
 
     def __repr__(self):

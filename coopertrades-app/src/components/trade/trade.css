@@ -17,4 +17,7 @@
     min-width: 300px;
 }
 
-
+.trade-column {
+    height: 400px; /* Set a fixed height */
+    overflow-y: auto; /* Enable vertical scrolling */
+}

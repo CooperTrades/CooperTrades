@@ -33,10 +33,8 @@ class Item(Base):
 
     # Indexes
     __table_args__ = (
-        Index('idx_category', 'category'),
-        Index('idx_condition', 'condition'),
+        Index('idx_category_condition_status', 'category', 'condition', 'trade_status'),
     )
-
     user = relationship("User", back_populates="items")
 
 
@@ -59,11 +57,15 @@ class Trade(Base):
 
     # Indexes
     __table_args__ = (
-        Index('idx_requester_id', 'requester_id'),
-        Index('idx_accepter_id', 'accepter_id'),
-        Index('idx_requester_item_id', 'requester_item_id'),
-        Index('idx_accepter_item_id', 'accepter_item_id'),
+        Index('idx_trade_requester_accepter', 'requester_id', 'accepter_id', 'status'),
+        Index('idx_trade_items', 'requester_item_id', 'accepter_item_id'),
     )
+    # __table_args__ = (
+    #     Index('idx_requester_id', 'requester_id'),
+    #     Index('idx_accepter_id', 'accepter_id'),
+    #     Index('idx_requester_item_id', 'requester_item_id'),
+    #     Index('idx_accepter_item_id', 'accepter_item_id'),
+    # )
 
 
 class User(Base):
@@ -300,16 +302,17 @@ def filter_items(request):
 
         # Initialize the query on the Item table
         query = DBSession.query(Item).filter(
-            Item.trade_status == 'AVAILABLE',
+            # Item.trade_status == 'AVAILABLE',
+            or_(Item.trade_status == 'AVAILABLE', Item.trade_status == 'PENDING'),
             Item.user_id != user_id  # Exclude items owned by the same user
         )
 
         # Add category filter if selected_category is not empty
-        if selected_category:
+        if selected_category and selected_category != 'ALL':
             query = query.filter(Item.category == selected_category)
 
         # Add condition filter if selected_condition is not empty
-        if selected_condition:
+        if selected_condition and selected_category != 'ALL':
             query = query.filter(Item.condition == selected_condition)
 
         # Execute the query
@@ -338,16 +341,16 @@ def fuzzy_search_items(request):
         user_id = data.get('user_id')  # Optional: filter out items belonging to a specific user
 
         # Start the query with initial condition
-        conditions = [Item.trade_status == 'AVAILABLE']
+        conditions = [or_(Item.trade_status == 'AVAILABLE', Item.trade_status == 'PENDING')]
 
         # Add the user_id condition to exclude items owned by the given user
         if user_id:
             conditions.append(Item.user_id != user_id)
 
         # Add filters for category and condition if provided
-        if selected_category:
+        if selected_category and selected_category != 'ALL':
             conditions.append(Item.category == selected_category)
-        if selected_condition:
+        if selected_condition and selected_category != 'ALL':
             conditions.append(Item.condition == selected_condition)
 
         # Combine conditions using and_ if needed
@@ -390,6 +393,102 @@ def update_item_status(request):
 
     except Exception as e:
         return Response(json_body={'error': str(e)}, status=500)
+
+    # def find_cycle(session):
+    #     print("LOOKING FOR CYCLE")
+    #     # Load all trades that are pending execution
+    #     trades = session.query(Trade).filter(Trade.accept_time == None).all()
+    #
+    #     # Graph adjacency list
+    #     graph = defaultdict(list)
+    #     trade_map = {}
+    #
+    #     # Build the graph
+    #     for trade in trades:
+    #         graph[trade.requester_id].append(trade.accepter_id)
+    #         trade_map[(trade.requester_id, trade.accepter_id)] = trade.trade_id
+    #
+    #     visited = set()
+    #     stack = set()
+    #
+    #     def dfs(node, path):
+    #         if node in stack:
+    #             # Cycle found
+    #             cycle_start_index = path.index(node)
+    #             cycle = path[cycle_start_index:]
+    #             cycle_trades = [trade_map[(cycle[i], cycle[(i + 1) % len(cycle)])] for i in range(len(cycle))]
+    #             return cycle_trades
+    #         if node in visited:
+    #             return None
+    #
+    #         visited.add(node)
+    #         stack.add(node)
+    #         path.append(node)
+    #
+    #         for neighbor in graph[node]:
+    #             result = dfs(neighbor, path)
+    #             if result:
+    #                 return result
+    #
+    #         stack.remove(node)
+    #         path.pop()
+    #         return None
+    #
+    #     # Start DFS from any node that hasn't been visited
+    #     for user_id in graph:
+    #         if user_id not in visited:
+    #             cycle_trades = dfs(user_id, [])
+    #             if cycle_trades:
+    #                 return cycle_trades
+    #
+    #     return None  # No cycle found
+    #
+    # @view_config(route_name='execute_cycle', request_method='POST', renderer='json')
+    # def execute_cycle(request):
+    #     Session = sessionmaker(bind=engine)
+    #     session = Session()
+    #
+    #     try:
+    #         # Begin a transaction
+    #         session.begin()
+    #
+    #         # Find cycle trades
+    #         cycle_trades = find_cycle(session)
+    #         if not cycle_trades:
+    #             # If no cycle trades are detected, commit any open transactions and redirect
+    #             session.commit()  # Commit here to close the session properly
+    #             return HTTPFound(location=request.route_url('http://localhost:6543/trade/execute'))
+    #
+    #         items_to_update = {}  # This will store the new owner for each item
+    #
+    #         # First, gather all items and their new owners without making any changes
+    #         for trade_id in cycle_trades:
+    #             trade = session.query(Trade).filter_by(trade_id=trade_id).one()
+    #             if trade.status:  # Assuming this checks if the trade is already executed
+    #                 raise Exception(f"Trade {trade_id} already executed or not available.")
+    #
+    #             # Mapping the items to their new owners
+    #             items_to_update[trade.requester_item_id] = trade.accepter_id
+    #             items_to_update[trade.accepter_item_id] = trade.requester_id
+    #
+    #         # Now, update each item with the new owner
+    #         for item_id, new_owner_id in items_to_update.items():
+    #             item = session.query(Item).filter_by(item_id=item_id).one()
+    #             if item.trade_status != TradeStatus.PENDING:
+    #                 raise Exception("Item not available for trade.")
+    #
+    #             item.user_id = new_owner_id
+    #             item.trade_status = TradeStatus.NOT_AVAILABLE
+    #
+    #         # Confirm all updates and commit the transaction
+    #         session.commit()
+    #         return {'message': 'Cycle executed successfully'}
+    #     except Exception as e:
+    #         session.rollback()  # Rollback if anything goes wrong
+    #         print(f"Error executing cycle: {str(e)}")
+    #         return Response(json_body={'error': str(e)}, status=500)
+    #     finally:
+    #         session.close()  # Ensure the session is closed after processing
 
 
 def add_cors_headers_response_callback(event):
@@ -435,6 +534,7 @@ if __name__ == '__main__':
         config.add_route('filter_items', '/items/filter')
         config.add_route('fuzzy_search_items', '/items/fuzzy-search')
         config.add_route('update_item_status', '/item/update-status')
+        # config.add_route('execute_cycle', '/trade/execute-cycle')
 
         config.scan()
         app = config.make_wsgi_app()
