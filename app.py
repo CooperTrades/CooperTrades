@@ -1,7 +1,8 @@
 import enum
+from collections import defaultdict
 from wsgiref.simple_server import make_server
 from pyramid.config import Configurator
-from pyramid.httpexceptions import HTTPForbidden
+from pyramid.httpexceptions import HTTPForbidden, HTTPFound
 from sqlalchemy.orm import scoped_session, sessionmaker, relationship
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey, DateTime, Enum, Index, or_, and_
 from sqlalchemy.ext.declarative import declarative_base
@@ -168,6 +169,144 @@ def login(request):
         return Response(json_body={'error': str(e)}, status=500)
 
 
+def find_cycle(session, requester_item_id, accepter_item_id):
+    print("LOOKING FOR CYCLE")
+    # Load all trades that are pending execution
+    trades = session.query(Trade).filter(Trade.accept_time == None).all()
+
+    # Graph adjacency list based on items
+    graph = defaultdict(list)
+    trade_map = {}
+    item_to_user_map = {}
+
+    # Build the graph
+    for trade in trades:
+        graph[trade.requester_item_id].append(trade.accepter_item_id)
+        trade_map[(trade.requester_item_id, trade.accepter_item_id)] = trade.trade_id
+        item_to_user_map[trade.requester_item_id] = trade.requester_id
+        item_to_user_map[trade.accepter_item_id] = trade.accepter_id
+
+    visited = set()
+    stack = set()
+
+    def dfs(item_id, path):
+        if item_id in stack:
+            # Cycle found
+            cycle_start_index = path.index(item_id)
+            cycle = path[cycle_start_index:]
+            cycle_trades = [trade_map[(cycle[i], cycle[(i + 1) % len(cycle)])] for i in range(len(cycle))]
+            return cycle_trades
+        if item_id in visited:
+            return None
+
+        visited.add(item_id)
+        stack.add(item_id)
+        path.append(item_id)
+
+        for neighbor in graph[item_id]:
+            result = dfs(neighbor, path)
+            if result:
+                return result
+
+        stack.remove(item_id)
+        path.pop()
+        return None
+
+    # Start DFS from the item_ids provided in the trade request
+    # This ensures we start the search from the relevant part of the graph
+    initial_items = [requester_item_id, accepter_item_id]
+    for item_id in initial_items:
+        if item_id not in visited:
+            cycle_trades = dfs(item_id, [])
+            if cycle_trades:
+                return cycle_trades
+
+    return None  # No cycle found
+
+
+# def find_cycle(session):
+#     print("LOOKING FOR CYCLE")
+#     # Load all trades that are pending execution
+#     trades = session.query(Trade).filter(Trade.accept_time == None).all()
+#
+#     # Graph adjacency list
+#     graph = defaultdict(list)
+#     trade_map = {}
+#
+#     # Build the graph
+#     for trade in trades:
+#         graph[trade.requester_id].append(trade.accepter_id)
+#         trade_map[(trade.requester_id, trade.accepter_id)] = trade.trade_id
+#
+#     visited = set()
+#     stack = set()
+#
+#     def dfs(node, path):
+#         if node in stack:
+#             # Cycle found
+#             cycle_start_index = path.index(node)
+#             cycle = path[cycle_start_index:]
+#             cycle_trades = [trade_map[(cycle[i], cycle[(i + 1) % len(cycle)])] for i in range(len(cycle))]
+#             return cycle_trades
+#         if node in visited:
+#             return None
+#
+#         visited.add(node)
+#         stack.add(node)
+#         path.append(node)
+#
+#         for neighbor in graph[node]:
+#             result = dfs(neighbor, path)
+#             if result:
+#                 return result
+#
+#         stack.remove(node)
+#         path.pop()
+#         return None
+#
+#     # Start DFS from any node that hasn't been visited
+#     for user_id in graph:
+#         if user_id not in visited:
+#             cycle_trades = dfs(user_id, [])
+#             if cycle_trades:
+#                 return cycle_trades
+#
+#     return None  # No cycle found
+
+
+# @view_config(route_name='execute_trade', request_method='POST', renderer='json')
+# def execute_trade(request):
+#     try:
+#         data = request.json_body
+#         requester_item_id = data['requester_item_id']
+#         accepter_item_id = data['accepter_item_id']
+#
+#         # Fetch the items from the database
+#         requester_item = DBSession.query(Item).filter_by(item_id=requester_item_id).one()
+#         accepter_item = DBSession.query(Item).filter_by(item_id=accepter_item_id).one()
+#
+#         # Check if items exist and belong to different users
+#         if requester_item and accepter_item and requester_item.user_id != accepter_item.user_id:
+#             trade = DBSession.query(Trade).filter_by(requester_item_id=requester_item_id,
+#                                                      accepter_item_id=accepter_item_id).one()
+#
+#             # Update the trade's accept_time to the current time
+#             trade.accept_time = func.now()
+#
+#             # Swap the user_ids
+#             temp = requester_item.user_id
+#             requester_item.user_id = accepter_item.user_id
+#             accepter_item.user_id = temp
+#
+#             requester_item.trade_status = 'NOT_AVAILABLE'
+#             accepter_item.trade_status = 'NOT_AVAILABLE'
+#
+#             # Commit changes to the database
+#             DBSession.commit()
+#             return {'message': 'Trade executed successfully'}
+#         return {'message': 'Trade cannot be executed'}
+#     except Exception as e:
+#         return Response(json_body={'error': str(e)}, status=500)
 @view_config(route_name='execute_trade', request_method='POST', renderer='json')
 def execute_trade(request):
     try:
@@ -175,32 +314,94 @@ def execute_trade(request):
         requester_item_id = data['requester_item_id']
         accepter_item_id = data['accepter_item_id']
 
-        # Fetch the items from the database
-        requester_item = DBSession.query(Item).filter_by(item_id=requester_item_id).one()
-        accepter_item = DBSession.query(Item).filter_by(item_id=accepter_item_id).one()
+        # Begin a transaction
+        Session = sessionmaker(bind=engine)
+        session = Session()
+
+        # Fetch the items involved in the trade
+        requester_item = session.query(Item).filter_by(item_id=requester_item_id).one()
+        accepter_item = session.query(Item).filter_by(item_id=accepter_item_id).one()
 
         # Check if items exist and belong to different users
         if requester_item and accepter_item and requester_item.user_id != accepter_item.user_id:
-            trade = DBSession.query(Trade).filter_by(requester_item_id=requester_item_id,
-                                                     accepter_item_id=accepter_item_id).one()
+            # Detect cycle including these items
+            cycle_trades = find_cycle(session, requester_item_id, accepter_item_id)
+            if cycle_trades:
+                print("CYCLE DETECTED")
+                # Execute all trades in the detected cycle
+                trade_items_swap(session, cycle_trades)  # Pass the list of trade IDs directly
+                return {'message': 'Cycle trade executed successfully'}
 
-            # Update the trade's accept_time to the current time
-            trade.accept_time = func.now()
-
-            # Swap the user_ids
-            temp = requester_item.user_id
-            requester_item.user_id = accepter_item.user_id
-            accepter_item.user_id = temp
-
-            requester_item.trade_status = 'NOT_AVAILABLE'
-            accepter_item.trade_status = 'NOT_AVAILABLE'
-
-            # Commit changes to the database
-            DBSession.commit()
+            # If no cycle, execute the single trade
+            execute_single_trade(session, requester_item_id, accepter_item_id)
             return {'message': 'Trade executed successfully'}
+
         return {'message': 'Trade cannot be executed'}
     except Exception as e:
+        session.rollback()  # Rollback the transaction on any failure
+        print(f"Error executing trade: {str(e)}")
         return Response(json_body={'error': str(e)}, status=500)
+
+
+def execute_single_trade(session, requester_item_id, accepter_item_id):
+    # Update the trade's accept time to the current time
+    trade = session.query(Trade).filter_by(requester_item_id=requester_item_id,
+                                           accepter_item_id=accepter_item_id).one()
+
+    requester_item = DBSession.query(Item).filter_by(item_id=requester_item_id).one()
+    accepter_item = DBSession.query(Item).filter_by(item_id=accepter_item_id).one()
+
+    # Update the trade's accept_time to the current time
+    trade.accept_time = func.now()
+
+    # Swap the user_ids
+    temp = requester_item.user_id
+    requester_item.user_id = accepter_item.user_id
+    accepter_item.user_id = temp
+
+    requester_item.trade_status = 'NOT_AVAILABLE'
+    accepter_item.trade_status = 'NOT_AVAILABLE'
+
+    # Commit changes to the database
+    session.commit()
+
+
+# def trade_items_swap(session, requester_item_id, accepter_item_id):
+#     requester_item = session.query(Item).filter_by(item_id=requester_item_id).one()
+#     accepter_item = session.query(Item).filter_by(item_id=accepter_item_id).one()
+#     requester_item.user_id, accepter_item.user_id = accepter_item.user_id, requester_item.user_id
+#     requester_item.trade_status, accepter_item.trade_status = 'NOT_AVAILABLE', 'NOT_AVAILABLE'
+def trade_items_swap(session, trade_ids):
+    # Collect all trades and their corresponding items
+    items = []
+    user_ids = []
+
+    for trade_id in trade_ids:
+        trade = session.query(Trade).filter_by(trade_id=trade_id).one()
+        requester_item = session.query(Item).filter_by(item_id=trade.requester_item_id).one()
+        accepter_item = session.query(Item).filter_by(item_id=trade.accepter_item_id).one()
+        items.append((requester_item, accepter_item))
+        user_ids.append(requester_item.user_id)  # Collecting user_id from the requester
+
+    print("USERIDS bef: ", user_ids)
+    # Rotate user_ids to the right
+    user_ids = [user_ids[-1]] + user_ids[:-1]
+    print("USERIDS after: ", user_ids)
+
+    # Print item IDs for verification
+    item_ids_before = [(requester_item.item_id, accepter_item.item_id) for requester_item, accepter_item in items]
+    print("ITEM IDS before swap:", item_ids_before)
+
+    # Reassign user_ids to accepter items
+    for (requester_item, accepter_item), new_user_id in zip(items, user_ids):
+        requester_item.user_id = new_user_id  # Assigning new user_id from the rotated list
+
+    # Update all items as not available since they are part of a completed trade
+    for requester_item, accepter_item in items:
+        requester_item.trade_status = 'NOT_AVAILABLE'
+        accepter_item.trade_status = 'NOT_AVAILABLE'
+
+    session.commit()
 
 
 @view_config(route_name='get_trades_by_accepter', renderer='json')
@@ -394,101 +595,53 @@ def update_item_status(request):
     except Exception as e:
         return Response(json_body={'error': str(e)}, status=500)
 
-    # def find_cycle(session):
-    #     print("LOOKING FOR CYCLE")
-    #     # Load all trades that are pending execution
-    #     trades = session.query(Trade).filter(Trade.accept_time == None).all()
-    #
-    #     # Graph adjacency list
-    #     graph = defaultdict(list)
-    #     trade_map = {}
-    #
-    #     # Build the graph
-    #     for trade in trades:
-    #         graph[trade.requester_id].append(trade.accepter_id)
-    #         trade_map[(trade.requester_id, trade.accepter_id)] = trade.trade_id
-    #
-    #     visited = set()
-    #     stack = set()
-    #
-    #     def dfs(node, path):
-    #         if node in stack:
-    #             # Cycle found
-    #             cycle_start_index = path.index(node)
-    #             cycle = path[cycle_start_index:]
-    #             cycle_trades = [trade_map[(cycle[i], cycle[(i + 1) % len(cycle)])] for i in range(len(cycle))]
-    #             return cycle_trades
-    #         if node in visited:
-    #             return None
-    #
-    #         visited.add(node)
-    #         stack.add(node)
-    #         path.append(node)
-    #
-    #         for neighbor in graph[node]:
-    #             result = dfs(neighbor, path)
-    #             if result:
-    #                 return result
-    #
-    #         stack.remove(node)
-    #         path.pop()
-    #         return None
-    #
-    #     # Start DFS from any node that hasn't been visited
-    #     for user_id in graph:
-    #         if user_id not in visited:
-    #             cycle_trades = dfs(user_id, [])
-    #             if cycle_trades:
-    #                 return cycle_trades
-    #
-    #     return None  # No cycle found
-    #
-    # @view_config(route_name='execute_cycle', request_method='POST', renderer='json')
-    # def execute_cycle(request):
-    #     Session = sessionmaker(bind=engine)
-    #     session = Session()
-    #
-    #     try:
-    #         # Begin a transaction
-    #         session.begin()
-    #
-    #         # Find cycle trades
-    #         cycle_trades = find_cycle(session)
-    #         if not cycle_trades:
-    #             # If no cycle trades are detected, commit any open transactions and redirect
-    #             session.commit()  # Commit here to close the session properly
-    #             return HTTPFound(location=request.route_url('http://localhost:6543/trade/execute'))
-    #
-    #         items_to_update = {}  # This will store the new owner for each item
-    #
-    #         # First, gather all items and their new owners without making any changes
-    #         for trade_id in cycle_trades:
-    #             trade = session.query(Trade).filter_by(trade_id=trade_id).one()
-    #             if trade.status:  # Assuming this checks if the trade is already executed
-    #                 raise Exception(f"Trade {trade_id} already executed or not available.")
-    #
-    #             # Mapping the items to their new owners
-    #             items_to_update[trade.requester_item_id] = trade.accepter_id
-    #             items_to_update[trade.accepter_item_id] = trade.requester_id
-    #
-    #         # Now, update each item with the new owner
-    #         for item_id, new_owner_id in items_to_update.items():
-    #             item = session.query(Item).filter_by(item_id=item_id).one()
-    #             if item.trade_status != TradeStatus.PENDING:
-    #                 raise Exception("Item not available for trade.")
-    #
-    #             item.user_id = new_owner_id
-    #             item.trade_status = TradeStatus.NOT_AVAILABLE
-    #
-    #         # Confirm all updates and commit the transaction
-    #         session.commit()
-    #         return {'message': 'Cycle executed successfully'}
-    #     except Exception as e:
-    #         session.rollback()  # Rollback if anything goes wrong
-    #         print(f"Error executing cycle: {str(e)}")
-    #         return Response(json_body={'error': str(e)}, status=500)
-    #     finally:
-    #         session.close()  # Ensure the session is closed after processing
+
+# @view_config(route_name='execute_cycle', request_method='POST', renderer='json')
+# def execute_cycle(request):
+#     Session = sessionmaker(bind=engine)
+#     session = Session()
+#
+#     try:
+#         # Begin a transaction
+#         session.begin()
+#
+#         # Find cycle trades
+#         cycle_trades = find_cycle(session)
+#         if not cycle_trades:
+#             # If no cycle trades are detected, commit any open transactions and redirect
+#             session.commit()  # Commit here to close the session properly
+#             return HTTPFound(location=request.route_url('http://localhost:6543/trade/execute'))
+#
+#         items_to_update = {}  # This will store the new owner for each item
+#         print("ITEMS:", items_to_update)
+#         # First, gather all items and their new owners without making any changes
+#         for trade_id in cycle_trades:
+#             trade = session.query(Trade).filter_by(trade_id=trade_id).one()
+#             # if trade.status:  # Assuming this checks if the trade is already executed
+#             #     raise Exception(f"Trade {trade_id} already executed or not available.")
+#
+#             # Mapping the items to their new owners
+#             items_to_update[trade.requester_item_id] = trade.accepter_id
+#             items_to_update[trade.accepter_item_id] = trade.requester_id
+#
+#         # Now, update each item with the new owner
+#         for item_id, new_owner_id in items_to_update.items():
+#             item = session.query(Item).filter_by(item_id=item_id).one()
+#             if item.trade_status != TradeStatus.PENDING:
+#                 raise Exception("Item not available for trade.")
+#
+#             item.user_id = new_owner_id
+#             item.trade_status = TradeStatus.NOT_AVAILABLE
+#
+#         # Confirm all updates and commit the transaction
+#         session.commit()
+#         return {'message': 'Cycle executed successfully'}
+#     except Exception as e:
+#         session.rollback()  # Rollback if anything goes wrong
+#         print(f"Error executing cycle: {str(e)}")
+#         return Response(json_body={'error': str(e)}, status=500)
+#     finally:
+#         session.close()  # Ensure the session is closed after processing
 
 
 def add_cors_headers_response_callback(event):
@@ -534,7 +687,7 @@ if __name__ == '__main__':
         config.add_route('filter_items', '/items/filter')
         config.add_route('fuzzy_search_items', '/items/fuzzy-search')
         config.add_route('update_item_status', '/item/update-status')
-        # config.add_route('execute_cycle', '/trade/execute-cycle')
+        config.add_route('execute_cycle', '/trade/execute-cycle')
 
         config.scan()
         app = config.make_wsgi_app()

@@ -54,7 +54,7 @@ function Trade() {
 
             const myAvailableItems = availableItems.filter(item =>
                 item.user_id === user.user_id &&
-                item.trade_status === "AVAILABLE"
+                (item.trade_status === "AVAILABLE" || item.trade_status === "PENDING")
             );
 
             setMyItems(myAvailableItems);
