@@ -68,7 +68,6 @@ class Trade(Base):
     #     Index('idx_accepter_item_id', 'accepter_item_id'),
     # )
 
-
 class User(Base):
     __tablename__ = 'users'
     user_id = Column(Integer, primary_key=True, autoincrement=True)
